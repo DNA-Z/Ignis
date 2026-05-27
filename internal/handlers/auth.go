@@ -2,10 +2,9 @@ package handlers
 
 import (
 	"errors"
-	"log"
 	"github.com/DNA-Z/Ignis/internal/auth_service/models"
-	"github.com/DNA-Z/Ignis/internal/auth_service"
 	"github.com/DNA-Z/Ignis/internal/service"
+	"log"
 
 	"net/http"
 
@@ -16,7 +15,7 @@ type AuthHandler struct {
 	authService service.AuthService
 }
 
-func NewAuthHandler(authService auth-service.AuthService) *AuthHandler {
+func NewAuthHandler(authService service.AuthService) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
 	}
