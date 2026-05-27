@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/DNA-Z/Ignis/internal/auth_service/models"
+	"github.com/DNA-Z/Ignis/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

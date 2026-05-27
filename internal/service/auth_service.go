@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/DNA-Z/Ignis/internal/auth_service/models"
 	"github.com/DNA-Z/Ignis/internal/config"
+	"github.com/DNA-Z/Ignis/internal/models"
 	"github.com/DNA-Z/Ignis/internal/repository"
 
 	"github.com/golang-jwt/jwt/v5"
