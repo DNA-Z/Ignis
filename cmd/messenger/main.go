@@ -98,10 +98,4 @@ func main() {
 		http.GET("/search/messages", searchHandler.SearchMessages)
 		http.GET("/search/chats", searchHandler.SearchChats)
 	}
-
-	// Запуск сервера
-	log.Printf("Server starting on %s", cfg.ServerAddress)
-	if err := r.Run(cfg.ServerAddress); err != nil {
-		log.Fatal("Failed to start server:", err)
-	}
 }
