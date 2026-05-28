@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+
 	"github.com/DNA-Z/Ignis/internal/models"
 	"github.com/DNA-Z/Ignis/internal/repository"
 
@@ -41,10 +42,6 @@ func NewSearchService(
 func (s *searchService) SearchMessages(ctx context.Context, userID uuid.UUID, query string, chatID *uuid.UUID, limit, offset int) ([]*models.MessageResponse, int64, error) {
 	// Получаем список чатов, в которых участвует пользователь
 	var chatIDs []uuid.UUID
-	subQuery := s.db.Table("chat_participants").
-		Select("chat_id").
-		Where("user_id = ?", userID)
-
 	if err := s.db.Model(&models.ChatParticipant{}).
 		Where("user_id = ?", userID).
 		Pluck("chat_id", &chatIDs).Error; err != nil {
