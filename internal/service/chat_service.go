@@ -7,14 +7,13 @@ import (
 	"github.com/DNA-Z/Ignis/internal/repository"
 
 	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
-	ErrChatNotFound      = errors.New("chat not found")
-	ErrNotParticipant    = errors.New("user is not a participant of this chat")
-	ErrNotAdmin          = errors.New("user is not an admin of this chat")
-	ErrInvalidChatType   = errors.New("invalid chat type")
-	ErrPrivateChatExists = errors.New("private chat already exists")
+	ErrChatNotFound   = errors.New("chat not found")
+	ErrNotParticipant = errors.New("user is not a participant of this chat")
+	ErrNotAdmin       = errors.New("user is not an admin of this chat")
 )
 
 type ChatService interface {
@@ -32,22 +31,25 @@ type chatService struct {
 	chatRepo        repository.ChatRepository
 	participantRepo repository.ParticipantRepository
 	userRepo        repository.UserRepository
+	messageRepo     repository.MessageRepository
 }
 
 func NewChatService(
 	chatRepo repository.ChatRepository,
 	participantRepo repository.ParticipantRepository,
 	userRepo repository.UserRepository,
+	messageRepo repository.MessageRepository,
 ) ChatService {
 	return &chatService{
 		chatRepo:        chatRepo,
 		participantRepo: participantRepo,
 		userRepo:        userRepo,
+		messageRepo:     messageRepo,
 	}
 }
 
 func (s *chatService) CreateChat(ctx context.Context, userID uuid.UUID, req *models.CreateChatRequest) (*models.ChatResponse, error) {
-	// Для private чата проверяем, существует ли уже чат между этими пользователями
+	// Для private чата проверяем, существует ли уже чат
 	if req.Type == models.PrivateChat {
 		if len(req.UserIDs) != 1 {
 			return nil, errors.New("private chat must have exactly one other user")
@@ -70,7 +72,7 @@ func (s *chatService) CreateChat(ctx context.Context, userID uuid.UUID, req *mod
 		return nil, err
 	}
 
-	// Добавляем создателя как участника
+	// Добавляем участников
 	allUserIDs := append([]uuid.UUID{userID}, req.UserIDs...)
 	if err := s.participantRepo.AddParticipants(ctx, chat.ID, allUserIDs); err != nil {
 		return nil, err
@@ -80,7 +82,6 @@ func (s *chatService) CreateChat(ctx context.Context, userID uuid.UUID, req *mod
 }
 
 func (s *chatService) GetChat(ctx context.Context, userID, chatID uuid.UUID) (*models.ChatResponse, error) {
-	// Проверяем, является ли пользователь участником
 	isParticipant, err := s.participantRepo.IsParticipant(ctx, chatID, userID)
 	if err != nil {
 		return nil, err
@@ -98,25 +99,130 @@ func (s *chatService) GetChat(ctx context.Context, userID, chatID uuid.UUID) (*m
 }
 
 func (s *chatService) GetUserChats(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*models.ChatResponse, int64, error) {
-	chats, total, err := s.chatRepo.GetUserChats(ctx, userID, limit, offset)
+	chatIDs, total, err := s.chatRepo.GetUserChatIDs(ctx, userID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(chatIDs) == 0 {
+		return []*models.ChatResponse{}, total, nil
+	}
+
+	chats, err := s.chatRepo.FindByIDs(ctx, chatIDs)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	responses := make([]*models.ChatResponse, len(chats))
+
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(10)
+
 	for i, chat := range chats {
-		resp, err := s.buildChatResponse(ctx, chat, userID)
-		if err != nil {
-			continue
-		}
-		responses[i] = resp
+		i, chat := i, chat
+
+		g.Go(func() error {
+			resp, err := s.buildChatResponse(ctx, chat, userID)
+			if err != nil {
+				return err
+			}
+			responses[i] = resp
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, 0, err
 	}
 
 	return responses, total, nil
 }
 
+func (s *chatService) buildChatResponse(ctx context.Context, chat *models.Chat, currentUserID uuid.UUID) (*models.ChatResponse, error) {
+	var (
+		participants []*models.User
+		unreadCount  int64
+		lastMessage  *models.Message
+	)
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		var err error
+		participants, err = s.participantRepo.GetParticipants(ctx, chat.ID)
+		return err
+	})
+
+	g.Go(func() error {
+		var err error
+		unreadCount, err = s.participantRepo.GetUnreadCount(ctx, chat.ID, currentUserID)
+		return err
+	})
+
+	g.Go(func() error {
+		var err error
+		lastMessage, err = s.messageRepo.GetLastMessage(ctx, chat.ID)
+		if err != nil && err != repository.ErrNotFound {
+			return err
+		}
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	participantResponses := make([]models.UserResponse, len(participants))
+	for i, p := range participants {
+		participantResponses[i] = models.UserResponse{
+			ID:        p.ID,
+			Login:     p.Login,
+			Name:      p.Name,
+			CreatedAt: p.CreatedAt,
+		}
+	}
+
+	resp := &models.ChatResponse{
+		ID:           chat.ID,
+		Type:         chat.Type,
+		Name:         chat.Name,
+		Description:  chat.Description,
+		CreatedBy:    chat.CreatedBy,
+		CreatedAt:    chat.CreatedAt,
+		UpdatedAt:    chat.UpdatedAt,
+		Participants: participantResponses,
+		UnreadCount:  unreadCount,
+	}
+
+	if lastMessage != nil {
+		resp.LastMessage = s.buildMessagePreview(lastMessage)
+	}
+
+	return resp, nil
+}
+
+func (s *chatService) buildMessagePreview(message *models.Message) *models.MessageResponse {
+	text := message.Text
+	if message.IsDeleted {
+		text = "[deleted]"
+	}
+
+	return &models.MessageResponse{
+		ID:        message.ID,
+		ChatID:    message.ChatID,
+		Text:      truncateString(text, 100),
+		CreatedAt: message.CreatedAt,
+	}
+}
+
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
 func (s *chatService) UpdateChat(ctx context.Context, userID, chatID uuid.UUID, req *models.UpdateChatRequest) error {
-	// Проверяем права (только создатель или админ)
 	role, err := s.participantRepo.GetUserRole(ctx, chatID, userID)
 	if err != nil {
 		return err
@@ -127,7 +233,6 @@ func (s *chatService) UpdateChat(ctx context.Context, userID, chatID uuid.UUID, 
 		return ErrChatNotFound
 	}
 
-	// Только создатель или админ могут обновлять
 	if chat.CreatedBy != userID && role != models.RoleAdmin {
 		return ErrNotAdmin
 	}
@@ -148,7 +253,6 @@ func (s *chatService) DeleteChat(ctx context.Context, userID, chatID uuid.UUID) 
 		return ErrChatNotFound
 	}
 
-	// Только создатель может удалить чат
 	if chat.CreatedBy != userID {
 		return ErrNotAdmin
 	}
@@ -157,7 +261,6 @@ func (s *chatService) DeleteChat(ctx context.Context, userID, chatID uuid.UUID) 
 }
 
 func (s *chatService) AddParticipants(ctx context.Context, userID, chatID uuid.UUID, req *models.AddParticipantRequest) error {
-	// Проверяем права
 	role, err := s.participantRepo.GetUserRole(ctx, chatID, userID)
 	if err != nil {
 		return err
@@ -186,7 +289,6 @@ func (s *chatService) RemoveParticipant(ctx context.Context, userID, chatID, tar
 		return ErrChatNotFound
 	}
 
-	// Админ или создатель может исключить, либо пользователь сам себя
 	if targetUserID != userID && chat.CreatedBy != userID && role != models.RoleAdmin {
 		return ErrNotAdmin
 	}
@@ -200,43 +302,9 @@ func (s *chatService) UpdateRole(ctx context.Context, userID, chatID, targetUser
 		return ErrChatNotFound
 	}
 
-	// Только создатель может назначать админов
 	if chat.CreatedBy != userID {
 		return ErrNotAdmin
 	}
 
 	return s.participantRepo.UpdateRole(ctx, chatID, targetUserID, req.Role)
-}
-
-func (s *chatService) buildChatResponse(ctx context.Context, chat *models.Chat, currentUserID uuid.UUID) (*models.ChatResponse, error) {
-	participants, err := s.participantRepo.GetParticipants(ctx, chat.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	unreadCount, _ := s.participantRepo.GetUnreadCount(ctx, chat.ID, currentUserID)
-
-	participantResponses := make([]models.UserResponse, len(participants))
-	for i, p := range participants {
-		participantResponses[i] = models.UserResponse{
-			ID:        p.ID,
-			Login:     p.Login,
-			Name:      p.Name,
-			CreatedAt: p.CreatedAt,
-		}
-	}
-
-	resp := &models.ChatResponse{
-		ID:           chat.ID,
-		Type:         chat.Type,
-		Name:         chat.Name,
-		Description:  chat.Description,
-		CreatedBy:    chat.CreatedBy,
-		CreatedAt:    chat.CreatedAt,
-		UpdatedAt:    chat.UpdatedAt,
-		Participants: participantResponses,
-		UnreadCount:  unreadCount,
-	}
-
-	return resp, nil
 }
