@@ -1,13 +1,12 @@
 package main
 
 import (
-	"log"
-
 	"github.com/DNA-Z/Ignis/internal/config"
 	"github.com/DNA-Z/Ignis/internal/handlers"
 	"github.com/DNA-Z/Ignis/internal/middleware"
 	"github.com/DNA-Z/Ignis/internal/repository"
 	"github.com/DNA-Z/Ignis/internal/service"
+	"log"
 
 	"github.com/DNA-Z/Ignis/internal/models"
 	"github.com/gin-gonic/gin"

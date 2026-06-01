@@ -62,6 +62,6 @@ func (r *messageRepository) MarkAsRead(ctx context.Context, messageID, userID, c
 	}
 
 	return r.db.WithContext(ctx).
-		Clauses(). // OnConflict можно добавить
+		Clauses().
 		Create(receipt).Error
 }
