@@ -1,8 +1,10 @@
 package handlers
 
 import (
-	"github.com/DNA-Z/Ignis/internal/service"
 	"net/http"
+	"strconv"
+
+	"github.com/DNA-Z/Ignis/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -118,7 +120,7 @@ func (h *FileHandler) GetFile(c *gin.Context) {
 
 	c.Header("Content-Disposition", "attachment; filename="+file.Name)
 	c.Header("Content-Type", file.MimeType)
-	c.Header("Content-Length", string(rune(file.Size)))
+	c.Header("Content-Length", strconv.FormatInt(file.Size, 10))
 
 	c.DataFromReader(http.StatusOK, file.Size, file.MimeType, reader, nil)
 }

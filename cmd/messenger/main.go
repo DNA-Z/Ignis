@@ -1,12 +1,13 @@
 package main
 
 import (
+	"log"
+
 	"github.com/DNA-Z/Ignis/internal/config"
 	"github.com/DNA-Z/Ignis/internal/handlers"
 	"github.com/DNA-Z/Ignis/internal/middleware"
 	"github.com/DNA-Z/Ignis/internal/repository"
 	"github.com/DNA-Z/Ignis/internal/service"
-	"log"
 
 	"github.com/DNA-Z/Ignis/internal/models"
 	"github.com/gin-gonic/gin"
@@ -99,7 +100,6 @@ func main() {
 		http.GET("/search/chats", searchHandler.SearchChats)
 	}
 
-	// Запуск сервера
 	log.Printf("Server starting on %s", cfg.ServerAddress)
 	if err := r.Run(cfg.ServerAddress); err != nil {
 		log.Fatal("Failed to start server:", err)

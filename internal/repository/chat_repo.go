@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+
 	"github.com/DNA-Z/Ignis/internal/models"
 
 	"github.com/google/uuid"
@@ -10,72 +11,43 @@ import (
 )
 
 type ChatRepository interface {
-	Create(ctx context.Context, chat *models.Chat) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.Chat, error)
-	GetUserChats(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*models.Chat, int64, error)
-	Update(ctx context.Context, chat *models.Chat) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	GenericRepository[models.Chat]
+	GetUserChatIDs(ctx context.Context, userID uuid.UUID, limit, offset int) ([]uuid.UUID, int64, error)
 	GetPrivateChat(ctx context.Context, userID1, userID2 uuid.UUID) (*models.Chat, error)
+	FindByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Chat, error)
 }
 
 type chatRepository struct {
+	GenericRepository[models.Chat]
 	db *gorm.DB
 }
 
 func NewChatRepository(db *gorm.DB) ChatRepository {
-	return &chatRepository{db: db}
-}
-
-func (r *chatRepository) Create(ctx context.Context, chat *models.Chat) error {
-	return r.db.WithContext(ctx).Create(chat).Error
-}
-
-func (r *chatRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.Chat, error) {
-	var chat models.Chat
-	err := r.db.WithContext(ctx).
-		Where("id = ? AND deleted_at IS NULL", id).
-		First(&chat).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrUserNotFound
+	return &chatRepository{
+		GenericRepository: NewGenericRepository[models.Chat](db),
+		db:                db,
 	}
-	return &chat, err
 }
 
-func (r *chatRepository) GetUserChats(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*models.Chat, int64, error) {
-	var chats []*models.Chat
+func (r *chatRepository) GetUserChatIDs(ctx context.Context, userID uuid.UUID, limit, offset int) ([]uuid.UUID, int64, error) {
+	var chatIDs []uuid.UUID
 	var total int64
 
-	subQuery := r.db.Table("chat_participants").
-		Select("chat_id").
+	query := r.db.WithContext(ctx).
+		Table("chat_participants").
 		Where("user_id = ?", userID)
 
-	query := r.db.WithContext(ctx).
-		Where("id IN (?)", subQuery).
-		Where("deleted_at IS NULL")
-
-	if err := query.Model(&models.Chat{}).Count(&total).Error; err != nil {
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	if err := query.Order("updated_at DESC").
+	err := query.
+		Select("chat_id").
 		Limit(limit).
 		Offset(offset).
-		Find(&chats).Error; err != nil {
-		return nil, 0, err
-	}
+		Pluck("chat_id", &chatIDs).Error
 
-	return chats, total, nil
-}
-
-func (r *chatRepository) Update(ctx context.Context, chat *models.Chat) error {
-	return r.db.WithContext(ctx).Save(chat).Error
-}
-
-func (r *chatRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).
-		Where("id = ?", id).
-		Delete(&models.Chat{}).Error
+	return chatIDs, total, err
 }
 
 func (r *chatRepository) GetPrivateChat(ctx context.Context, userID1, userID2 uuid.UUID) (*models.Chat, error) {
@@ -93,7 +65,16 @@ func (r *chatRepository) GetPrivateChat(ctx context.Context, userID1, userID2 uu
 		First(&chat).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrUserNotFound
+		return nil, ErrNotFound
 	}
 	return &chat, err
+}
+
+func (r *chatRepository) FindByIDs(ctx context.Context, ids []uuid.UUID) ([]*models.Chat, error) {
+	var chats []*models.Chat
+	err := r.db.WithContext(ctx).
+		Where("id IN ?", ids).
+		Where("deleted_at IS NULL").
+		Find(&chats).Error
+	return chats, err
 }

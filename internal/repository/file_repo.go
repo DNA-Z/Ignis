@@ -9,41 +9,26 @@ import (
 )
 
 type FileRepository interface {
-	Create(ctx context.Context, file *models.File) error
-	GetByID(ctx context.Context, id uuid.UUID) (*models.File, error)
+	GenericRepository[models.File]
 	GetByMessageID(ctx context.Context, messageID uuid.UUID) ([]*models.File, error)
-	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 type fileRepository struct {
+	GenericRepository[models.File]
 	db *gorm.DB
 }
 
 func NewFileRepository(db *gorm.DB) FileRepository {
-	return &fileRepository{db: db}
-}
-
-func (r *fileRepository) Create(ctx context.Context, file *models.File) error {
-	return r.db.WithContext(ctx).Create(file).Error
-}
-
-func (r *fileRepository) GetByID(ctx context.Context, id uuid.UUID) (*models.File, error) {
-	var file models.File
-	err := r.db.WithContext(ctx).
-		Where("id = ?", id).
-		First(&file).Error
-	return &file, err
+	return &fileRepository{
+		GenericRepository: NewGenericRepository[models.File](db),
+		db:                db,
+	}
 }
 
 func (r *fileRepository) GetByMessageID(ctx context.Context, messageID uuid.UUID) ([]*models.File, error) {
-	var files []*models.File
-	err := r.db.WithContext(ctx).
-		Where("message_id = ?", messageID).
-		Find(&files).Error
+	files, _, err := r.FindAll(ctx,
+		WithCondition("message_id = ?", messageID),
+		WithOrderBy("created_at ASC"),
+	)
 	return files, err
-}
-
-func (r *fileRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).
-		Delete(&models.File{}, "id = ?", id).Error
 }
