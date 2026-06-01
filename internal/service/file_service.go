@@ -6,6 +6,7 @@ import (
 	"github.com/DNA-Z/Ignis/internal/models"
 	"github.com/DNA-Z/Ignis/internal/repository"
 	"io"
+	"log"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -166,7 +167,7 @@ func (s *fileService) DeleteFile(ctx context.Context, userID, fileID uuid.UUID) 
 
 	// Удаляем физический файл
 	if err := os.Remove(file.Path); err != nil {
-		// Логируем, но не возвращаем ошибку
+		log.Print("error deleting the file")
 	}
 
 	return s.fileRepo.Delete(ctx, fileID)

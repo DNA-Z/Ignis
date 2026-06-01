@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-
 	"github.com/DNA-Z/Ignis/internal/models"
 	"github.com/DNA-Z/Ignis/internal/repository"
 
@@ -40,11 +39,9 @@ func NewSearchService(
 }
 
 func (s *searchService) SearchMessages(ctx context.Context, userID uuid.UUID, query string, chatID *uuid.UUID, limit, offset int) ([]*models.MessageResponse, int64, error) {
-	// Получаем список чатов, в которых участвует пользователь
-	var chatIDs []uuid.UUID
-	if err := s.db.Model(&models.ChatParticipant{}).
-		Where("user_id = ?", userID).
-		Pluck("chat_id", &chatIDs).Error; err != nil {
+	// Получаем ID чатов пользователя
+	chatIDs, _, err := s.chatRepo.GetUserChatIDs(ctx, userID, 1000, 0)
+	if err != nil {
 		return nil, 0, err
 	}
 
@@ -82,7 +79,7 @@ func (s *searchService) SearchMessages(ctx context.Context, userID uuid.UUID, qu
 
 	responses := make([]*models.MessageResponse, len(messages))
 	for i, msg := range messages {
-		user, err := s.userRepo.FindByID(ctx, msg.UserID)
+		user, err := s.userRepo.GetByID(ctx, msg.UserID)
 		if err != nil {
 			continue
 		}
@@ -107,34 +104,27 @@ func (s *searchService) SearchMessages(ctx context.Context, userID uuid.UUID, qu
 }
 
 func (s *searchService) SearchChats(ctx context.Context, userID uuid.UUID, query string, limit, offset int) ([]*models.ChatResponse, int64, error) {
-	// Получаем чаты пользователя
-	var chatIDs []uuid.UUID
-	if err := s.db.Model(&models.ChatParticipant{}).
-		Where("user_id = ?", userID).
-		Pluck("chat_id", &chatIDs).Error; err != nil {
+	chatIDs, total, err := s.chatRepo.GetUserChatIDs(ctx, userID, limit, offset)
+	if err != nil {
 		return nil, 0, err
 	}
 
 	if len(chatIDs) == 0 {
-		return []*models.ChatResponse{}, 0, nil
+		return []*models.ChatResponse{}, total, nil
 	}
 
-	chatQuery := s.db.WithContext(ctx).
-		Model(&models.Chat{}).
-		Where("id IN (?)", chatIDs).
+	// Поиск среди чатов пользователя
+	var chats []*models.Chat
+
+	searchQuery := s.db.WithContext(ctx).
+		Where("id IN ?", chatIDs).
 		Where("deleted_at IS NULL")
 
 	if query != "" {
-		chatQuery = chatQuery.Where("name ILIKE ?", "%"+query+"%")
+		searchQuery = searchQuery.Where("name ILIKE ?", "%"+query+"%")
 	}
 
-	var total int64
-	if err := chatQuery.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	var chats []*models.Chat
-	if err := chatQuery.
+	if err := searchQuery.
 		Order("updated_at DESC").
 		Limit(limit).
 		Offset(offset).
