@@ -1,10 +1,9 @@
 package handlers
 
 import (
+	"github.com/DNA-Z/Ignis/internal/service"
 	"net/http"
 	"strconv"
-
-	"github.com/DNA-Z/Ignis/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -22,22 +21,8 @@ func NewFileHandler(fileService service.FileService, maxFileSize int64) *FileHan
 	}
 }
 
-// UploadFile загружает файл
-// @Summary Загрузка файла
-// @Tags files
-// @Accept multipart/form-data
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "ID сообщения"
-// @Param file formData file true "Файл для загрузки"
-// @Success 201 {object} models.FileResponse
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 413 {object} map[string]string
-// @Router /api/messages/{id}/files [post]
 func (h *FileHandler) UploadFile(c *gin.Context) {
-	userID, err := getAuthUserID(c)
+	userID, err := getUserID(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -83,19 +68,8 @@ func (h *FileHandler) UploadFile(c *gin.Context) {
 	c.JSON(http.StatusCreated, fileResponse)
 }
 
-// GetFile скачивает файл
-// @Summary Скачивание файла
-// @Tags files
-// @Produce octet-stream
-// @Security BearerAuth
-// @Param id path string true "ID файла"
-// @Success 200 {file} binary
-// @Failure 401 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Router /api/files/{id} [get]
 func (h *FileHandler) GetFile(c *gin.Context) {
-	userID, err := getAuthUserID(c)
+	userID, err := getUserID(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -125,18 +99,8 @@ func (h *FileHandler) GetFile(c *gin.Context) {
 	c.DataFromReader(http.StatusOK, file.Size, file.MimeType, reader, nil)
 }
 
-// DeleteFile удаляет файл
-// @Summary Удаление файла
-// @Tags files
-// @Security BearerAuth
-// @Param id path string true "ID файла"
-// @Success 204 "No Content"
-// @Failure 401 {object} map[string]string
-// @Failure 403 {object} map[string]string
-// @Failure 404 {object} map[string]string
-// @Router /api/files/{id} [delete]
 func (h *FileHandler) DeleteFile(c *gin.Context) {
-	userID, err := getAuthUserID(c)
+	userID, err := getUserID(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
