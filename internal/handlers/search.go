@@ -19,21 +19,8 @@ func NewSearchHandler(searchService service.SearchService) *SearchHandler {
 	}
 }
 
-// SearchMessages ищет сообщения
-// @Summary Поиск сообщений
-// @Tags search
-// @Produce json
-// @Security BearerAuth
-// @Param query string true "Поисковый запрос"
-// @Param chatId query string false "ID чата (опционально)"
-// @Param limit query int false "Лимит" default(50)
-// @Param offset query int false "Смещение" default(0)
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Router /api/search/messages [get]
 func (h *SearchHandler) SearchMessages(c *gin.Context) {
-	userID, err := getAuthUserID(c)
+	userID, err := getUserID(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -76,20 +63,8 @@ func (h *SearchHandler) SearchMessages(c *gin.Context) {
 	})
 }
 
-// SearchChats ищет чаты
-// @Summary Поиск чатов
-// @Tags search
-// @Produce json
-// @Security BearerAuth
-// @Param query query string true "Поисковый запрос"
-// @Param limit query int false "Лимит" default(50)
-// @Param offset query int false "Смещение" default(0)
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Router /api/search/chats [get]
 func (h *SearchHandler) SearchChats(c *gin.Context) {
-	userID, err := getAuthUserID(c)
+	userID, err := getUserID(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
