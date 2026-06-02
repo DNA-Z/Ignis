@@ -1,31 +1,34 @@
 package config
 
 import (
+	"flag"
 	"os"
-	"strconv"
-	"time"
 )
 
 type Config struct {
 	ServerAddress string
+	BaseURL       string
 	DatabaseURI   string
 	JWTSecret     string
-	JWTExpiration time.Duration
-	MaxFileSize   int64
-	UploadPath    string
 }
 
+var conStr = "postgres://postgres:postgres@postgres:5432/praktikum?sslmode=disable" //"postgres://postgres:pass@localhost:5432/space_talk?sslmode=disable"
+
 func Load() (*Config, error) {
-	jwtExpHours, _ := strconv.Atoi(getEnv("JWT_EXPIRATION_HOURS", "24"))
-	maxFileSize, _ := strconv.ParseInt(getEnv("MAX_FILE_SIZE", "10485760"), 10, 64)
+	var (
+		serverAddress = flag.String("a", getEnv("SERVER_ADDRESS", "localhost:8080"), "HTTP server address")
+		baseURL       = flag.String("b", getEnv("BASE_URL", "Base URL"), "")
+		databaseURI   = flag.String("d", getEnv("DATABASE_URI", conStr), "PostgreSQL connection string")
+		jwtSecret     = flag.String("k", getEnv("JWT_SECRET", "default-secret-key"), "JWT secret key")
+	)
+
+	flag.Parse()
 
 	return &Config{
-		ServerAddress: getEnv("RUN_ADDRESS", ":8080"),
-		DatabaseURI:   getEnv("DATABASE_URI", "postgres://postgres:password@localhost:5432/messenger?sslmode=disable"),
-		JWTSecret:     getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
-		JWTExpiration: time.Duration(jwtExpHours) * time.Hour,
-		MaxFileSize:   maxFileSize,
-		UploadPath:    getEnv("UPLOAD_PATH", "./uploads"),
+		ServerAddress: *serverAddress,
+		BaseURL:       *baseURL,
+		DatabaseURI:   *databaseURI,
+		JWTSecret:     *jwtSecret,
 	}, nil
 }
 

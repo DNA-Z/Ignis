@@ -27,7 +27,7 @@ func WithPagination(limit int, offset int) QueryOption {
 	}
 }
 
-func WithOdrerBy(order string) QueryOption {
+func WithOrderBy(order string) QueryOption {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Order(order)
 	}
@@ -36,15 +36,6 @@ func WithOdrerBy(order string) QueryOption {
 func WithCondition(query string, args ...interface{}) QueryOption {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(query, args...)
-	}
-}
-
-func WithPreload(relations ...string) QueryOption {
-	return func(db *gorm.DB) *gorm.DB {
-		for _, relation := range relations {
-			db = db.Preload(relation)
-		}
-		return db
 	}
 }
 

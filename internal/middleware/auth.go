@@ -1,9 +1,10 @@
 package middleware
 
 import (
-	"github.com/DNA-Z/Ignis/internal/service"
 	"net/http"
 	"strings"
+
+	"github.com/DNA-Z/Ignis/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

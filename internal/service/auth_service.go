@@ -110,7 +110,7 @@ func (s *authService) ValidateToken(tokenString string) (uuid.UUID, error) {
 func (s *authService) generateToken(userID uuid.UUID) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID.String(),
-		"exp":     time.Now().Add(s.config.JWTExpiration).Unix(),
+		"exp":     time.Now().Add(24 * time.Hour).Unix(),
 		"iat":     time.Now().Unix(),
 	}
 

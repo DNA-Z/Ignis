@@ -1,12 +1,13 @@
 package main
 
 import (
+	"log"
+
 	"github.com/DNA-Z/Ignis/internal/config"
 	"github.com/DNA-Z/Ignis/internal/handlers"
 	"github.com/DNA-Z/Ignis/internal/middleware"
 	"github.com/DNA-Z/Ignis/internal/repository"
 	"github.com/DNA-Z/Ignis/internal/service"
-	"log"
 
 	"github.com/DNA-Z/Ignis/internal/models"
 	"github.com/gin-gonic/gin"
@@ -43,7 +44,7 @@ func main() {
 	fileRepo := repository.NewFileRepository(db)
 
 	authService := service.NewAuthService(userRepo, cfg)
-	chatService := service.NewChatService(chatRepo, participantRepo, userRepo)
+	chatService := service.NewChatService(chatRepo, participantRepo, userRepo, messageRepo)
 	messageService := service.NewMessageService(messageRepo, participantRepo, userRepo, fileRepo)
 	fileService := service.NewFileService(fileRepo, messageRepo, participantRepo, "./uploads", 10<<20) // 10MB
 	searchService := service.NewSearchService(db, userRepo, chatRepo, messageRepo, participantRepo)

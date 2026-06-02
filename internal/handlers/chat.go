@@ -1,10 +1,11 @@
 package handlers
 
 import (
-	"github.com/DNA-Z/Ignis/internal/models"
-	"github.com/DNA-Z/Ignis/internal/service"
 	"net/http"
 	"strconv"
+
+	"github.com/DNA-Z/Ignis/internal/models"
+	"github.com/DNA-Z/Ignis/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
