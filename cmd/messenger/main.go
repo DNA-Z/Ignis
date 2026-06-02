@@ -65,39 +65,39 @@ func main() {
 		api.POST("/login", authHandler.Login)
 	}
 
-	http := api.Group("/")
-	http.Use(authMiddleware.RequireAuth())
+	protected := api.Group("/")
+	protected.Use(authMiddleware.RequireAuth())
 	{
 		// Пользователи
-		http.GET("/users/me", authHandler.GetMe)
+		protected.GET("/users/me", authHandler.GetMe)
 
 		// Чаты
-		http.POST("/chats", chatHandler.CreateChat)
-		http.GET("/chats", chatHandler.GetUserChats)
-		http.GET("/chats/:id", chatHandler.GetChat)
-		http.PUT("/chats/:id", chatHandler.UpdateChat)
-		http.DELETE("/chats/:id", chatHandler.DeleteChat)
+		protected.POST("/chats", chatHandler.CreateChat)
+		protected.GET("/chats", chatHandler.GetUserChats)
+		protected.GET("/chats/:id", chatHandler.GetChat)
+		protected.PUT("/chats/:id", chatHandler.UpdateChat)
+		protected.DELETE("/chats/:id", chatHandler.DeleteChat)
 
 		// Участники
-		http.POST("/chats/:id/users", chatHandler.AddParticipants)
-		http.DELETE("/chats/:id/users/:userId", chatHandler.RemoveParticipant)
-		http.PUT("/chats/:id/users/:userId/role", chatHandler.UpdateRole)
+		protected.POST("/chats/:id/users", chatHandler.AddParticipants)
+		protected.DELETE("/chats/:id/users/:userId", chatHandler.RemoveParticipant)
+		protected.PUT("/chats/:id/users/:userId/role", chatHandler.UpdateRole)
 
 		// Сообщения
-		http.POST("/chats/:id/messages", messageHandler.SendMessage)
-		http.GET("/chats/:id/messages", messageHandler.GetMessages)
-		http.PUT("/messages/:id", messageHandler.UpdateMessage)
-		http.DELETE("/messages/:id", messageHandler.DeleteMessage)
-		http.POST("/messages/:id/read", messageHandler.MarkAsRead)
+		protected.POST("/chats/:id/messages", messageHandler.SendMessage)
+		protected.GET("/chats/:id/messages", messageHandler.GetMessages)
+		protected.PUT("/messages/:id", messageHandler.UpdateMessage)
+		protected.DELETE("/messages/:id", messageHandler.DeleteMessage)
+		protected.POST("/messages/:id/read", messageHandler.MarkAsRead)
 
 		// Файлы
-		http.POST("/messages/:id/files", fileHandler.UploadFile)
-		http.GET("/files/:id", fileHandler.GetFile)
-		http.DELETE("/files/:id", fileHandler.DeleteFile)
+		protected.POST("/messages/:id/files", fileHandler.UploadFile)
+		protected.GET("/files/:id", fileHandler.GetFile)
+		protected.DELETE("/files/:id", fileHandler.DeleteFile)
 
 		// Поиск
-		http.GET("/search/messages", searchHandler.SearchMessages)
-		http.GET("/search/chats", searchHandler.SearchChats)
+		protected.GET("/search/messages", searchHandler.SearchMessages)
+		protected.GET("/search/chats", searchHandler.SearchChats)
 	}
 
 	log.Printf("Server starting on %s", cfg.ServerAddress)
